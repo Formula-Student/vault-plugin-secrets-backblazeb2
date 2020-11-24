@@ -2,6 +2,7 @@ package b2
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/hashicorp/vault/sdk/framework"
@@ -21,9 +22,19 @@ type backend struct {
 	clientMutex sync.RWMutex
 }
 
+var _ logical.Factory = Factory
+
 // Factory returns a configured instance of the B2 backend
 func Factory(ctx context.Context, c *logical.BackendConfig) (logical.Backend, error) {
-	b := Backend()
+	b, err := newBackend()
+	if err != nil {
+		return nil, err
+	}
+
+	if c == nil {
+		return nil, fmt.Errorf("configuration passed into backend is nil")
+	}
+
 	if err := b.Setup(ctx, c); err != nil {
 		return nil, err
 	}
@@ -32,14 +43,14 @@ func Factory(ctx context.Context, c *logical.BackendConfig) (logical.Backend, er
 	return b, nil
 }
 
-// Backend returns a configured B2 backend
-func Backend() *backend {
-	var b backend
+func newBackend() (*backend, error) {
+	b := &backend{
+		client: (*b2client.Client)(nil),
+	}
 
 	b.Backend = &framework.Backend{
 		BackendType: logical.TypeLogical,
 		Help:        "The B2 secrets backend provisions API keys for the Backblaze B2 service",
-
 		Paths: []*framework.Path{
 			// path_config.go
 			// ^config
@@ -67,5 +78,5 @@ func Backend() *backend {
 
 	b.client = (*b2client.Client)(nil)
 
-	return &b
+	return b, nil
 }
